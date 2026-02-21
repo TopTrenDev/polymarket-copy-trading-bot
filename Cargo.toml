@@ -1,0 +1,56 @@
+[package]
+name = "polymarket-copy-trading-bot"
+version = "1.0.0"
+edition = "2021"
+description = "Copy trades from a target Polymarket wallet in real time (Rust)"
+authors = [""]
+license = "ISC"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# WebSocket
+tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+futures-util = "0.3"
+
+# Ethereum / Polygon
+ethers = { version = "2", features = ["abigen", "ws"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Env and CLI
+dotenvy = "0.15"
+clap = { version = "4", features = ["derive"] }
+
+# Logging / output
+colored = "2"
+chrono = "0.4"
+
+# Base64 for API secret
+base64 = "0.22"
+
+# HMAC for L2 auth
+hmac = "0.12"
+sha2 = "0.10"
+
+# Hex encoding
+hex = "0.4"
+url = "2.5"
+
+[[bin]]
+name = "polymarket-bot"
+path = "src/main.rs"
+
+[[bin]]
+name = "redeem"
+path = "src/bin/redeem.rs"
+
+[[bin]]
+name = "auto-redeem"
+path = "src/bin/auto_redeem.rs"
