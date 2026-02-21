@@ -1,6 +1,6 @@
 # Polymarket Copy Trading Bot
 
-Copy trades from a target Polymarket wallet in real time. TypeScript + Bun, WebSocket + CLOB API. Auto-redemption, size multiplier, and max order limits included.
+Copy trades from a target Polymarket wallet in real time. **Rust**, WebSocket + CLOB API. Auto-redemption, size multiplier, and max order limits included.
 
 [![Telegram](https://img.shields.io/badge/Telegram-@toptrendev_66-2CA5E0?style=for-the-badge&logo=telegram)](https://t.me/TopTrenDev_66)
 [![Twitter](https://img.shields.io/badge/Twitter-@toptrendev-1DA1F2?style=for-the-badge&logo=twitter)](https://x.com/toptrendev)
@@ -9,23 +9,24 @@ Copy trades from a target Polymarket wallet in real time. TypeScript + Bun, WebS
 
 ## Quick start
 
-| Step | Action                                                                                   |
-| ---- | ---------------------------------------------------------------------------------------- |
-| 1    | **Bun** ([bun.sh](https://bun.sh)), **Polygon wallet** with USDC, **Polymarket** account |
-| 2    | `git clone <repo> && cd polymarket-copy-trading-bot && bun install`                      |
-| 3    | `cp .env.example .env` → set `PRIVATE_KEY` and `TARGET_WALLET`                           |
-| 4    | `bun src/index.ts` (creates API credentials on first run)                                |
+| Step | Action                                                                                                          |
+| ---- | --------------------------------------------------------------------------------------------------------------- |
+| 1    | **Rust** (1.84+), **Polygon wallet** with USDC, **Polymarket** account                                          |
+| 2    | `git clone <repo> && cd polymarket-copy-trading-bot && cargo build --release`                                   |
+| 3    | `cp .env.example .env` → set `PRIVATE_KEY` and `TARGET_WALLET`                                                  |
+| 4    | `cargo run --release --bin polymarket-bot` (loads API credentials from `src/data/credential.json` on first run) |
 
 **Commands**
 
-| What                   | Command                                                                    |
-| ---------------------- | -------------------------------------------------------------------------- |
-| Run bot                | `bun src/index.ts` or `npm start`                                          |
-| Auto-redeem (holdings) | `bun src/cli/auto-redeem.ts` or `npm run auto-redeem`                      |
-| Auto-redeem (dry run)  | `bun src/cli/auto-redeem.ts --dry-run`                                     |
-| Auto-redeem (from API) | `bun src/cli/auto-redeem.ts --api`                                         |
-| Redeem one market      | `bun src/cli/redeem.ts <conditionId>` or `npm run redeem -- <conditionId>` |
-| Check market           | `bun src/cli/auto-redeem.ts --check <conditionId>`                         |
+| What                   | Command                                               |
+| ---------------------- | ----------------------------------------------------- |
+| Run bot                | `cargo run --release --bin polymarket-bot`            |
+| Auto-redeem (holdings) | `cargo run --release --bin auto-redeem`               |
+| Auto-redeem (dry run)  | `cargo run --release --bin auto-redeem -- --dry-run`  |
+| Redeem one market      | `cargo run --release --bin redeem -- <conditionId>`   |
+| Redeem (via env)       | `CONDITION_ID=0x... cargo run --release --bin redeem` |
+
+**Note:** The Rust bot requires `src/data/credential.json`. Create it by running the original TypeScript bot once, or implement EIP-712 auth in Rust. Until then, copy a valid `credential.json` from a working setup.
 
 ---
 
@@ -67,22 +68,25 @@ Copy `.env.example` to `.env` and edit. **Required:** `PRIVATE_KEY`, `TARGET_WAL
 
 ```
 src/
-├── index.ts              # Bot entry (WebSocket + copy + optional auto-redeem)
-├── cli/
-│   ├── redeem.ts         # Single-market redeem / check
-│   └── auto-redeem.ts    # Batch redeem (holdings or API)
-├── redemption/           # Redemption logic (CTF, API, auto-redeem)
-│   └── redeem.ts
+├── main.rs              # Bot entry (WebSocket + copy + optional auto-redeem)
+├── lib.rs               # Library exports
+├── bin/
+│   ├── redeem.rs        # Single-market redeem
+│   └── auto_redeem.rs   # Batch redeem (holdings)
+├── config.rs            # Config from env
+├── logger.rs            # Logging helpers
+├── redemption/          # Redemption logic (CTF, stubs)
+│   └── mod.rs
 ├── data/
-│   ├── credential.json   # API creds (auto-created)
+│   ├── credential.json  # API creds (load from file)
 │   └── token-holding.json
-├── order-builder/        # Trade → order (multiplier, limits, FAK/FOK)
-├── providers/            # CLOB, WebSocket, RPC
-├── security/             # Allowance, createCredential
-└── utils/                # balance, holdings, logger, types
+├── order_builder/       # Trade → order (multiplier, limits, FAK/FOK)
+├── providers/           # CLOB, WebSocket, RPC
+├── security/            # Allowance, credential
+└── utils/               # balance, holdings, types
 ```
 
-**Stack:** Bun, TypeScript, `@polymarket/clob-client`, `@polymarket/real-time-data-client`, Ethers v6, Polygon.
+**Stack:** Rust, Tokio, reqwest, tokio-tungstenite, ethers, Polygon.
 
 ---
 
@@ -99,14 +103,7 @@ src/
 ## Development
 
 ```bash
-bun run tsc --noEmit
-bun --watch src/index.ts
+cargo build
+cargo run --bin polymarket-bot
+cargo clippy
 ```
-
----
-
-## License & contributing
-
-**License:** ISC. Contributions welcome (TypeScript, types, error handling, docs). For issues or questions, open a GitHub issue or check Polymarket API docs.
-
-**Disclaimer:** Provided as-is. Prediction markets and crypto are risky; use at your own discretion.
