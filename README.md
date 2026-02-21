@@ -2,27 +2,30 @@
 
 Copy trades from a target Polymarket wallet in real time. TypeScript + Bun, WebSocket + CLOB API. Auto-redemption, size multiplier, and max order limits included.
 
+[![Telegram](https://img.shields.io/badge/Telegram-@toptrendev_66-2CA5E0?style=for-the-badge&logo=telegram)](https://t.me/TopTrenDev_66)
+[![Twitter](https://img.shields.io/badge/Twitter-@toptrendev-1DA1F2?style=for-the-badge&logo=twitter)](https://x.com/toptrendev)
+
 ---
 
 ## Quick start
 
-| Step | Action |
-|------|--------|
-| 1 | **Bun** ([bun.sh](https://bun.sh)), **Polygon wallet** with USDC, **Polymarket** account |
-| 2 | `git clone <repo> && cd polymarket-copy-trading-bot && bun install` |
-| 3 | `cp .env.example .env` → set `PRIVATE_KEY` and `TARGET_WALLET` |
-| 4 | `bun src/index.ts` (creates API credentials on first run) |
+| Step | Action                                                                                   |
+| ---- | ---------------------------------------------------------------------------------------- |
+| 1    | **Bun** ([bun.sh](https://bun.sh)), **Polygon wallet** with USDC, **Polymarket** account |
+| 2    | `git clone <repo> && cd polymarket-copy-trading-bot && bun install`                      |
+| 3    | `cp .env.example .env` → set `PRIVATE_KEY` and `TARGET_WALLET`                           |
+| 4    | `bun src/index.ts` (creates API credentials on first run)                                |
 
 **Commands**
 
-| What | Command |
-|------|--------|
-| Run bot | `bun src/index.ts` or `npm start` |
-| Auto-redeem (holdings) | `bun src/cli/auto-redeem.ts` or `npm run auto-redeem` |
-| Auto-redeem (dry run) | `bun src/cli/auto-redeem.ts --dry-run` |
-| Auto-redeem (from API) | `bun src/cli/auto-redeem.ts --api` |
-| Redeem one market | `bun src/cli/redeem.ts <conditionId>` or `npm run redeem -- <conditionId>` |
-| Check market | `bun src/cli/auto-redeem.ts --check <conditionId>` |
+| What                   | Command                                                                    |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Run bot                | `bun src/index.ts` or `npm start`                                          |
+| Auto-redeem (holdings) | `bun src/cli/auto-redeem.ts` or `npm run auto-redeem`                      |
+| Auto-redeem (dry run)  | `bun src/cli/auto-redeem.ts --dry-run`                                     |
+| Auto-redeem (from API) | `bun src/cli/auto-redeem.ts --api`                                         |
+| Redeem one market      | `bun src/cli/redeem.ts <conditionId>` or `npm run redeem -- <conditionId>` |
+| Check market           | `bun src/cli/auto-redeem.ts --check <conditionId>`                         |
 
 ---
 
@@ -40,22 +43,14 @@ Copy trades from a target Polymarket wallet in real time. TypeScript + Bun, WebS
 
 Copy `.env.example` to `.env` and edit. **Required:** `PRIVATE_KEY`, `TARGET_WALLET`.
 
-| Variable | Description | Example / default |
-|----------|-------------|-------------------|
-| `PRIVATE_KEY` | Wallet private key (Polygon, USDC) | **required** |
-| `TARGET_WALLET` | Address to copy | `0x...` |
-| `SIZE_MULTIPLIER` | Fraction of target size | `0.3` (30%) |
-| `MAX_ORDER_AMOUNT` | Max USDC per order | `5` |
-| `ORDER_TYPE` | `FAK` or `FOK` | default if empty |
-| `TICK_SIZE` | Price step | `0.01` |
-| `NEG_RISK` | Allow negative risk | `true` / `false` |
-| `ENABLE_COPY_TRADING` | Master switch | `true` |
-| `REDEEM_DURATION` | Minutes between auto-redeem | `15` (null = off) |
-| `CHAIN_ID` | Chain | `137` (Polygon) |
-| `CLOB_API_URL` | CLOB base URL | `https://clob.polymarket.com` |
-| `USER_REAL_TIME_DATA_URL` | WebSocket host | optional override |
-| `RPC_TOKEN` | RPC provider token | optional |
-| `DEBUG` | Verbose logs | `true` |
+| Variable              | Description                                         | Example / default |
+| --------------------- | --------------------------------------------------- | ----------------- |
+| `PRIVATE_KEY`         | Wallet private key (Polygon, USDC)                  | **required**      |
+| `TARGET_WALLET`       | Address to copy                                     | `0x...`           |
+| `SIZE_MULTIPLIER`     | Fraction of target size (e.g. 30% of target amount) | `0.3`             |
+| `MAX_ORDER_AMOUNT`    | Max order amount in USDC                            | `5`               |
+| `ENABLE_COPY_TRADING` | Master switch for copy trading                      | `true`            |
+| `REDEEM_DURATION`     | Minutes between auto-redeem runs                    | `15`              |
 
 ---
 
