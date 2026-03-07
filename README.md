@@ -1,13 +1,13 @@
-# Polymarket Copy Trading Bot
+# 🤖 Polymarket Copy Trading Bot
 
 Copy trades from a target Polymarket wallet in real time. **Rust**, WebSocket + CLOB API. Auto-redemption, size multiplier, and max order limits included.
 
 [![Telegram](https://img.shields.io/badge/Telegram-@toptrendev_66-2CA5E0?style=for-the-badge&logo=telegram)](https://t.me/TopTrenDev_66)
-[![Twitter](https://img.shields.io/badge/Twitter-@toptrendev-1DA1F2?style=for-the-badge&logo=twitter)](https://x.com/toptrendev)
+[![Twitter](https://img.shields.io/badge/Twitter-@toptrendev-1DA1F2?style=for-the-badge&logo=twitter)](https://x.com/intent/follow?screen_name=toptrendev)
 
 ---
 
-## Quick start
+## 🚀 Quick start
 
 | Step | Action                                                                                                          |
 | ---- | --------------------------------------------------------------------------------------------------------------- |
@@ -16,7 +16,7 @@ Copy trades from a target Polymarket wallet in real time. **Rust**, WebSocket + 
 | 3    | `cp .env.example .env` → set `PRIVATE_KEY` and `TARGET_WALLET`                                                  |
 | 4    | `cargo run --release --bin polymarket-bot` (loads API credentials from `src/data/credential.json` on first run) |
 
-**Commands**
+**⌨️ Commands**
 
 | What                   | Command                                               |
 | ---------------------- | ----------------------------------------------------- |
@@ -26,11 +26,11 @@ Copy trades from a target Polymarket wallet in real time. **Rust**, WebSocket + 
 | Redeem one market      | `cargo run --release --bin redeem -- <conditionId>`   |
 | Redeem (via env)       | `CONDITION_ID=0x... cargo run --release --bin redeem` |
 
-**Note:** The Rust bot requires `src/data/credential.json`. Create it by running the original TypeScript bot once, or implement EIP-712 auth in Rust. Until then, copy a valid `credential.json` from a working setup.
+**📌 Note:** The Rust bot requires `src/data/credential.json`. Create it by running the original TypeScript bot once, or implement EIP-712 auth in Rust. Until then, copy a valid `credential.json` from a working setup.
 
 ---
 
-## What it does
+## ✨ What it does
 
 - **Mirrors trades** from a target wallet via WebSocket and CLOB.
 - **Auto-redeems** winning positions (optional interval in minutes).
@@ -40,7 +40,7 @@ Copy trades from a target Polymarket wallet in real time. **Rust**, WebSocket + 
 
 ---
 
-## Configuration (env)
+## ⚙️ Configuration (env)
 
 Copy `.env.example` to `.env` and edit. **Required:** `PRIVATE_KEY`, `TARGET_WALLET`.
 
@@ -55,7 +55,7 @@ Copy `.env.example` to `.env` and edit. **Required:** `PRIVATE_KEY`, `TARGET_WAL
 
 ---
 
-## Flow (high level)
+## 🔄 Flow (high level)
 
 1. **WebSocket** → trade activity from Polymarket.
 2. **Filter** by `TARGET_WALLET` → build order (multiplier, max amount, tick size, type).
@@ -64,7 +64,7 @@ Copy `.env.example` to `.env` and edit. **Required:** `PRIVATE_KEY`, `TARGET_WAL
 
 ---
 
-## Project layout
+## 📁 Project layout
 
 ```
 src/
@@ -86,21 +86,21 @@ src/
 └── utils/               # balance, holdings, types
 ```
 
-**Stack:** Rust, Tokio, reqwest, tokio-tungstenite, ethers, Polygon.
+**🛠️ Stack:** Rust, Tokio, reqwest, tokio-tungstenite, ethers, Polygon.
 
 ---
 
-## Security & safety
+## 🔒 Security & safety
 
 - Private key and API creds from env/file only (never hardcoded).
 - Allowances and balance checks before orders.
 - Start with small `SIZE_MULTIPLIER` and low `MAX_ORDER_AMOUNT`; use `--dry-run` for redemption tests.
 
-**Risks:** Market/liquidity/slippage, gas, API limits, latency. Use at your own risk; never risk more than you can afford to lose.
+**⚠️ Risks:** Market/liquidity/slippage, gas, API limits, latency. Use at your own risk; never risk more than you can afford to lose.
 
 ---
 
-## Development
+## 🛠️ Development
 
 ```bash
 cargo build
