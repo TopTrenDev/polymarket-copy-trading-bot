@@ -1,6 +1,7 @@
 use crate::config::TickSize;
 use crate::logger;
 use ethers::prelude::*;
+use ethers::types::transaction::eip712::Eip712;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -44,10 +45,17 @@ struct BalanceAllowanceRequest {
 pub struct BalanceAllowanceResponse {
     pub balance: Option<String>,
     pub allowance: Option<String>,
+    #[serde(default)]
+    pub allowances: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct OpenOrder {
+    pub id: Option<String>,
+    pub status: Option<String>,
+    pub market: Option<String>,
+    #[serde(alias = "asset_id")]
+    pub asset_id: Option<String>,
     pub side: String,
     #[serde(alias = "originalSize")]
     pub original_size: Option<String>,
@@ -83,15 +91,80 @@ impl CreateOrderResponse {
     }
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct MarketOrderRequest {
-    token_id: String,
+#[derive(Debug, Deserialize)]
+struct LastTradePriceResponse {
+    price: String,
     side: String,
-    amount: f64,
-    order_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    price: Option<f64>,
+}
+
+fn now_unix_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+fn now_unix_millis() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+}
+
+fn to_fixed_1e6(value: f64) -> Result<u128, String> {
+    if !value.is_finite() || value < 0.0 {
+        return Err(format!("Invalid numeric value: {}", value));
+    }
+    // Polymarket uses 6-decimal fixed math for both collateral and shares.
+    Ok((value * 1_000_000.0).round() as u128)
+}
+
+fn zero_bytes32() -> [u8; 32] {
+    [0u8; 32]
+}
+
+#[derive(Debug, Clone, Serialize, Eip712)]
+#[eip712(
+    name = "Polymarket CTF Exchange",
+    version = "2",
+    chain_id = 137,
+    verifying_contract = "0xE111180000d2663C0091e4f400237545B87B996B"
+)]
+#[serde(rename_all = "camelCase")]
+struct SignedOrderV2 {
+    pub salt: U256,
+    pub maker: Address,
+    pub signer: Address,
+    pub token_id: U256,
+    pub maker_amount: U256,
+    pub taker_amount: U256,
+    pub side: u8,
+    pub signature_type: u8,
+    pub timestamp: U256,
+    pub metadata: [u8; 32],
+    pub builder: [u8; 32],
+}
+
+#[derive(Debug, Clone, Serialize, Eip712)]
+#[eip712(
+    name = "Polymarket CTF Exchange",
+    version = "2",
+    chain_id = 137,
+    verifying_contract = "0xe2222d279d744050d28e00520010520000310F59"
+)]
+#[serde(rename_all = "camelCase")]
+struct SignedOrderV2NegRisk {
+    pub salt: U256,
+    pub maker: Address,
+    pub signer: Address,
+    pub token_id: U256,
+    pub maker_amount: U256,
+    pub taker_amount: U256,
+    pub side: u8,
+    pub signature_type: u8,
+    pub timestamp: U256,
+    pub metadata: [u8; 32],
+    pub builder: [u8; 32],
 }
 
 #[derive(Debug, Serialize)]
@@ -101,12 +174,29 @@ struct OrderOptions {
     neg_risk: bool,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PostOrderBody {
+    order: serde_json::Value,
+    owner: String,
+    #[serde(rename = "orderType")]
+    order_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expiration: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    post_only: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    defer_exec: Option<bool>,
+}
+
 pub struct ClobClient {
     client: Client,
     base_url: String,
     chain_id: u64,
     wallet: LocalWallet,
     creds: Option<ApiKeyCreds>,
+    owner: Option<String>,
+    signature_type: u8,
 }
 
 fn credential_path() -> PathBuf {
@@ -127,12 +217,19 @@ impl ClobClient {
             .build()
             .map_err(|e| e.to_string())?;
         let creds = Self::load_creds().ok();
+        let owner = std::env::var("CLOB_OWNER").ok().filter(|s| !s.trim().is_empty());
+        let signature_type = std::env::var("CLOB_SIGNATURE_TYPE")
+            .ok()
+            .and_then(|s| s.parse::<u8>().ok())
+            .unwrap_or(0);
         Ok(ClobClient {
             client,
             base_url: base_url.trim_end_matches('/').to_string(),
             chain_id,
             wallet,
             creds,
+            owner,
+            signature_type,
         })
     }
 
@@ -158,11 +255,7 @@ impl ClobClient {
 
     fn l2_headers(&self, method: &str, path: &str, body: Option<&str>) -> Result<HashMap<String, String>, String> {
         let creds = self.creds.as_ref().ok_or("No API credentials. Run create_or_derive_api_key first.")?;
-        let ts = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let timestamp = ts.to_string();
+        let timestamp = now_unix_seconds().to_string();
         let address = format!("{:?}", self.wallet.address());
 
         let to_sign = format!("{}{}{}", timestamp, method, path);
@@ -227,7 +320,8 @@ impl ClobClient {
 
     pub async fn get_open_orders(&mut self, asset_id: Option<&str>) -> Result<Vec<OpenOrder>, String> {
         self.ensure_creds().await?;
-        let path = "/orders";
+        // CLOB v2 user orders endpoint.
+        let path = "/data/orders";
         let url = format!("{}{}", self.base_url, path);
         let headers = self.l2_headers("GET", path, None)?;
         let mut req = self.client.get(&url);
@@ -243,8 +337,20 @@ impl ClobClient {
             let t = res.text().await.unwrap_or_default();
             return Err(format!("get_open_orders failed: {}", t));
         }
-        let out: Vec<OpenOrder> = res.json().await.map_err(|e| e.to_string())?;
-        Ok(out)
+        let v: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+        // v2 response is paginated: { data: [...], ... }
+        if let Some(arr) = v.get("data").and_then(|x| x.as_array()) {
+            let orders: Vec<OpenOrder> =
+                serde_json::from_value(serde_json::Value::Array(arr.clone()))
+                    .map_err(|e| e.to_string())?;
+            return Ok(orders);
+        }
+        // Some deployments may still return a plain array.
+        if v.is_array() {
+            let orders: Vec<OpenOrder> = serde_json::from_value(v).map_err(|e| e.to_string())?;
+            return Ok(orders);
+        }
+        Ok(vec![])
     }
 
     pub async fn update_balance_allowance(&mut self, asset_type: &str) -> Result<(), String> {
@@ -265,8 +371,26 @@ impl ClobClient {
             let t = res.text().await.unwrap_or_default();
             return Err(format!("update_balance_allowance failed: {}", t));
         }
-        logger::success("CLOB API balance allowance updated for USDC");
+        logger::success("CLOB API balance allowance updated");
         Ok(())
+    }
+
+    pub async fn get_last_trade_price(&self, token_id: &str) -> Result<f64, String> {
+        let path = "/last-trade-price";
+        let url = format!("{}{}", self.base_url, path);
+        let res = self
+            .client
+            .get(&url)
+            .query(&[("token_id", token_id)])
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !res.status().is_success() {
+            let t = res.text().await.unwrap_or_default();
+            return Err(format!("get_last_trade_price failed: {}", t));
+        }
+        let out: LastTradePriceResponse = res.json().await.map_err(|e| e.to_string())?;
+        out.price.parse::<f64>().map_err(|e| e.to_string())
     }
 
     pub async fn create_and_post_market_order(
@@ -280,24 +404,117 @@ impl ClobClient {
         price: Option<f64>,
     ) -> Result<CreateOrderResponse, String> {
         self.ensure_creds().await?;
-        let path = "/order";
-        let order = MarketOrderRequest {
-            token_id: token_id.to_string(),
-            side: side.to_uppercase(),
-            amount,
-            order_type: order_type.to_uppercase(),
-            price,
+        let side_upper = side.to_uppercase();
+        let side_u8 = match side_upper.as_str() {
+            "BUY" => 0u8,
+            "SELL" => 1u8,
+            _ => return Err(format!("Invalid side: {}", side)),
         };
-        let options = OrderOptions {
-            tick_size: tick_size.as_str().to_string(),
-            neg_risk,
+
+        // We always need a price to compute maker/taker amounts for a signed order.
+        let px = match price {
+            Some(p) if p.is_finite() && p > 0.0 => p,
+            _ => self.get_last_trade_price(token_id).await?,
         };
-        let body = serde_json::json!({
-            "order": order,
-            "options": options
+
+        // V2 signed order uses fixed-math ints (1e6).
+        let (maker_amount, taker_amount) = if side_u8 == 0 {
+            // BUY: caller's `amount` is collateral amount (pUSD). Shares = amount / price.
+            let collateral = amount;
+            let shares = collateral / px;
+            (to_fixed_1e6(collateral)?, to_fixed_1e6(shares)?)
+        } else {
+            // SELL: caller's `amount` is shares. Collateral = shares * price.
+            let shares = amount;
+            let collateral = shares * px;
+            (to_fixed_1e6(shares)?, to_fixed_1e6(collateral)?)
+        };
+
+        let maker_amount_u256 = U256::from(maker_amount);
+        let taker_amount_u256 = U256::from(taker_amount);
+        let token_u256 = U256::from_dec_str(token_id)
+            .or_else(|_| U256::from_str_radix(token_id.trim_start_matches("0x"), 16))
+            .map_err(|_| format!("Invalid token_id for v2 order (expected numeric/hex): {}", token_id))?;
+
+        let ts_ms = now_unix_millis();
+        let salt = U256::from(ts_ms);
+        let timestamp = U256::from(ts_ms);
+        let signature_type = self.signature_type;
+
+        // Sign EIP-712 v2 order.
+        let signature_hex = if neg_risk {
+            let order = SignedOrderV2NegRisk {
+                salt,
+                maker: self.wallet.address(),
+                signer: self.wallet.address(),
+                token_id: token_u256,
+                maker_amount: maker_amount_u256,
+                taker_amount: taker_amount_u256,
+                side: side_u8,
+                signature_type,
+                timestamp,
+                metadata: zero_bytes32(),
+                builder: zero_bytes32(),
+            };
+            self.wallet
+                .sign_typed_data(&order)
+                .await
+                .map_err(|e| e.to_string())?
+                .to_string()
+        } else {
+            let order = SignedOrderV2 {
+                salt,
+                maker: self.wallet.address(),
+                signer: self.wallet.address(),
+                token_id: token_u256,
+                maker_amount: maker_amount_u256,
+                taker_amount: taker_amount_u256,
+                side: side_u8,
+                signature_type,
+                timestamp,
+                metadata: zero_bytes32(),
+                builder: zero_bytes32(),
+            };
+            self.wallet
+                .sign_typed_data(&order)
+                .await
+                .map_err(|e| e.to_string())?
+                .to_string()
+        };
+
+        let order_json = serde_json::json!({
+            "salt": salt.to_string(),
+            "maker": format!("{:?}", self.wallet.address()),
+            "signer": format!("{:?}", self.wallet.address()),
+            "tokenId": token_id,
+            "makerAmount": maker_amount_u256.to_string(),
+            "takerAmount": taker_amount_u256.to_string(),
+            "side": side_upper,
+            "expiration": "0",
+            "timestamp": ts_ms.to_string(),
+            "metadata": format!("0x{}", hex::encode(zero_bytes32())),
+            "builder": format!("0x{}", hex::encode(zero_bytes32())),
+            "signature": signature_hex,
+            "signatureType": signature_type
         });
-        let body_str = body.to_string();
-        let url = format!("{}/order", self.base_url);
+
+        let owner = self
+            .owner
+            .clone()
+            .or_else(|| self.creds.as_ref().map(|c| c.api_key.clone()))
+            .ok_or("Missing owner: set CLOB_OWNER or provide api_key creds")?;
+        let body = PostOrderBody {
+            order: order_json,
+            owner,
+            order_type: order_type.to_uppercase(),
+            expiration: None,
+            post_only: Some(false),
+            defer_exec: Some(false),
+        };
+        let body_str = serde_json::to_string(&body).map_err(|e| e.to_string())?;
+
+        let path = "/order";
+        let url = format!("{}{}", self.base_url, path);
         let headers = self.l2_headers("POST", path, Some(&body_str))?;
         let mut req = self
             .client

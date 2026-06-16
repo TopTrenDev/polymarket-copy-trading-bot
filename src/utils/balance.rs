@@ -56,12 +56,17 @@ pub async fn display_wallet_balance(client: &mut ClobClient) -> Result<(), Strin
         .get_balance_allowance(ASSET_TYPE_COLLATERAL, None)
         .await?;
     let balance: f64 = r.balance.as_deref().unwrap_or("0").parse().unwrap_or(0.0);
-    let allowance: f64 = r.allowance.as_deref().unwrap_or("0").parse().unwrap_or(0.0);
+    let allowance_str = r
+        .allowance
+        .as_deref()
+        .or_else(|| r.allowances.values().next().map(|s| s.as_str()))
+        .unwrap_or("0");
+    let allowance: f64 = allowance_str.parse().unwrap_or(0.0);
     logger::info("═══════════════════════════════════════");
     logger::info("💰 WALLET BALANCE & ALLOWANCE");
     logger::info("═══════════════════════════════════════");
-    logger::info(&format!("USDC Balance: {:.6}", balance));
-    logger::info(&format!("USDC Allowance: {:.6}", allowance));
+    logger::info(&format!("pUSD Balance: {:.6}", balance));
+    logger::info(&format!("pUSD Allowance: {:.6}", allowance));
     logger::info(&format!(
         "Available: {:.6} (Balance: {:.6}, Allowance: {:.6})",
         balance.min(allowance),
@@ -88,17 +93,22 @@ pub async fn validate_buy_order_balance(
         .get_balance_allowance(ASSET_TYPE_COLLATERAL, None)
         .await?;
     let balance: f64 = r.balance.as_deref().unwrap_or("0").parse().unwrap_or(0.0);
-    let allowance: f64 = r.allowance.as_deref().unwrap_or("0").parse().unwrap_or(0.0);
+    let allowance_str = r
+        .allowance
+        .as_deref()
+        .or_else(|| r.allowances.values().next().map(|s| s.as_str()))
+        .unwrap_or("0");
+    let allowance: f64 = allowance_str.parse().unwrap_or(0.0);
     let available = get_available_balance(client, ASSET_TYPE_COLLATERAL, None).await?;
     let valid = available >= required_amount;
     if !valid {
         logger::warning("═══════════════════════════════════════");
         logger::warning("⚠️  INSUFFICIENT BALANCE/ALLOWANCE");
         logger::warning("═══════════════════════════════════════");
-        logger::warning(&format!("Required: {:.6} USDC", required_amount));
-        logger::warning(&format!("Available: {:.6} USDC", available));
-        logger::warning(&format!("Balance: {:.6} USDC", balance));
-        logger::warning(&format!("Allowance: {:.6} USDC", allowance));
+        logger::warning(&format!("Required: {:.6} pUSD", required_amount));
+        logger::warning(&format!("Available: {:.6} pUSD", available));
+        logger::warning(&format!("Balance: {:.6} pUSD", balance));
+        logger::warning(&format!("Allowance: {:.6} pUSD", allowance));
         logger::warning("═══════════════════════════════════════");
     }
     Ok(ValidateBalanceResult {

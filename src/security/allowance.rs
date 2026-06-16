@@ -6,7 +6,7 @@ pub async fn approve_usdc_allowance() -> Result<(), String> {
     let chain_id = chain_id_from_env();
     let _rpc = get_rpc_url(chain_id);
     logger::info(&format!(
-        "Approving USDC/CTF allowances on chain {} (run TypeScript bot once if you need on-chain approvals)",
+        "Approving pUSD/CTF allowances on chain {} (run TypeScript bot once if you need on-chain approvals)",
         chain_id
     ));
     logger::warning("Rust allowance module is a stub. Use the TypeScript bot to approve allowances, or implement ethers contract calls here.");
@@ -16,7 +16,7 @@ pub async fn approve_usdc_allowance() -> Result<(), String> {
 pub async fn update_clob_balance_allowance(
     client: &mut ClobClient,
 ) -> Result<(), String> {
-    logger::info("Updating CLOB API balance allowance for USDC...");
+    logger::info("Updating CLOB API balance allowance for pUSD...");
     client.update_balance_allowance("COLLATERAL").await?;
     Ok(())
 }
