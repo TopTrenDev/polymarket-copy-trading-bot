@@ -11,10 +11,10 @@ Copy trades from a target Polymarket wallet in real time. **Rust**, WebSocket + 
 
 | Step | Action                                                                                                          |
 | ---- | --------------------------------------------------------------------------------------------------------------- |
-| 1    | **Rust** (1.84+), **Polygon wallet** with USDC, **Polymarket** account                                          |
+| 1    | **Rust** (1.84+), **Polygon wallet** with pUSD collateral, **Polymarket** account                               |
 | 2    | `git clone <repo> && cd polymarket-copy-trading-bot && cargo build --release`                                   |
 | 3    | `cp .env.example .env` → set `PRIVATE_KEY` and `TARGET_WALLET`                                                  |
-| 4    | `cargo run --release --bin polymarket-bot` (loads API credentials from `src/data/credential.json` on first run) |
+| 4    | `cargo run --release --bin polymarket-bot` (loads API credentials from `src/data/credential.json`)              |
 
 **⌨️ Commands**
 
@@ -26,7 +26,7 @@ Copy trades from a target Polymarket wallet in real time. **Rust**, WebSocket + 
 | Redeem one market      | `cargo run --release --bin redeem -- <conditionId>`   |
 | Redeem (via env)       | `CONDITION_ID=0x... cargo run --release --bin redeem` |
 
-**📌 Note:** The Rust bot requires `src/data/credential.json`. Create it by running the original TypeScript bot once, or implement EIP-712 auth in Rust. Until then, copy a valid `credential.json` from a working setup.
+**📌 Note:** The Rust bot requires `src/data/credential.json` (CLOB API key/secret/passphrase). This file is **intentionally not committed** and is git-ignored. Create it using an existing working setup, then place it at `src/data/credential.json`.
 
 ---
 
@@ -46,12 +46,14 @@ Copy `.env.example` to `.env` and edit. **Required:** `PRIVATE_KEY`, `TARGET_WAL
 
 | Variable              | Description                                         | Example / default |
 | --------------------- | --------------------------------------------------- | ----------------- |
-| `PRIVATE_KEY`         | Wallet private key (Polygon, USDC)                  | **required**      |
+| `PRIVATE_KEY`         | Wallet private key (Polygon)                         | **required**      |
 | `TARGET_WALLET`       | Address to copy                                     | `0x...`           |
 | `SIZE_MULTIPLIER`     | Fraction of target size (e.g. 30% of target amount) | `0.3`             |
-| `MAX_ORDER_AMOUNT`    | Max order amount in USDC                            | `5`               |
+| `MAX_ORDER_AMOUNT`    | Max order amount in pUSD                            | `5`               |
 | `ENABLE_COPY_TRADING` | Master switch for copy trading                      | `true`            |
 | `REDEEM_DURATION`     | Minutes between auto-redeem runs                    | `15`              |
+| `CLOB_OWNER`          | Optional CLOB order owner UUID (if required)        | empty             |
+| `CLOB_SIGNATURE_TYPE` | Order signature type (0=EOA, 1=Proxy, 2=Safe, 3=1271) | `0`             |
 
 ---
 
@@ -78,7 +80,7 @@ src/
 ├── redemption/          # Redemption logic (CTF, stubs)
 │   └── mod.rs
 ├── data/
-│   ├── credential.json  # API creds (load from file)
+│   ├── credential.json  # API creds (local file, git-ignored)
 │   └── token-holding.json
 ├── order_builder/       # Trade → order (multiplier, limits, FAK/FOK)
 ├── providers/           # CLOB, WebSocket, RPC
